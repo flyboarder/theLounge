@@ -291,10 +291,9 @@
       :bindings [t user/user-tenants]
       (semitm/item
         :click #(tenant/swap-tenant! @t)
-        (semimg/avatar ;:class [:tiny]
-                       :src "images/wireframe/image.png")
+        (semimg/avatar
+          :src "images/wireframe/image.png")
         (semitm/content
-          :class [:left :aligned]
           (semhdr/h3 t))))))
 
 (defelem dash [attr kids]
@@ -316,5 +315,6 @@
           (tenant-menu)))
       (ui/row
         (semgrid/column
+          :class [:left :aligned]
           :width 6
           (tenant-list))))))

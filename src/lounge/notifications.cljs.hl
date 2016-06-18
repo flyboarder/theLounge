@@ -25,31 +25,39 @@
 
 (defn ->str [v] (-> v name str))
 
-(defn notification! [severity id title & [message]]
+(defn notification!
+  [severity id title & [message]]
   (let [ref (fb/notify (:uid @user/user) [severity id])]
     (comp
       (fbdb/merge! ref {:title title})
       (when message (fbdb/conj! (fbdb/get-in ref [:messages]) message)))))
 
-(defn remove-notifications! [severity]
+(defn remove-notifications!
+  [severity]
   (fbdb/remove! (fb/notify (:uid @user/user) [severity])))
 
-(defn info! [id title & [message]]
+(defn info!
+  [id title & [message]]
   (notification! :info id title message))
 
-(defn warning! [id title & [message]]
+(defn warning!
+  [id title & [message]]
   (notification! :warning id title message))
 
-(defn error! [id title & [message]]
+(defn error!
+  [id title & [message]]
   (notification! :error id title message))
 
-(defn success! [id title & [message]]
+(defn success!
+  [id title & [message]]
   (notification! :success id title message))
 
-(defn listen-notifications [uid state]
+(defn listen-notifications
+  [uid state]
   (fb/listen-val (fb/notify uid) state))
 
-(defn login [uid]
+(defn login
+  [uid]
   (listen-notifications "default" notifications-default)
   (listen-notifications uid notifications-fb))
 
@@ -61,13 +69,15 @@
   (reset! notifications-fb nil)
   (reset! notifications-default nil))
 
-(defelem messages [attr kids]
+(defelem messages
+  [attr kids]
   (semlst/bulleted-list
     (loop-tpl
       :bindings [[_ m] (:data-messages attr)]
       (semlst/item m))))
 
-(defelem notification [attr _]
+(defelem notification
+  [attr _]
   (div
     (loop-tpl
       :bindings [[_ notify] (:data-notification attr)]
@@ -75,7 +85,8 @@
         (semhdr/h5 (cell= (:title notify)))
         (messages :data-messages (cell= (:messages notify)))))))
 
-(defelem notifications [attr kids]
+(defelem notifications
+  [attr kids]
   (div
     (loop-tpl
       :bindings [[severity notify] (:data-notifications attr)]
@@ -85,7 +96,8 @@
            :click #(remove-notifications! @severity))
         (notification :data-notification notify)))))
 
-(defelem dash [attr kids]
+(defelem dash
+  [attr kids]
   (ui/row
     :toggle user/isAuth?
     (semgrid/grid

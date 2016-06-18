@@ -52,6 +52,8 @@
   (comp
     (check/with-kibit)
     ;(check/with-yagni)
+    ;(check/with-eastwood)
+    ;(check/with-bikeshed)
     ))
 
 (deftask dev

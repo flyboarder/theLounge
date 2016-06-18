@@ -42,7 +42,8 @@
 (defn update-tenant! [tid tdat]
   (fbdb/merge! (fb/tenants tid) (dissoc tdat :id)))
 
+(defn assoc-tenant! [tid korks val]
+  (fbdb/reset! (fb/tenants tid korks) val))
+
 (defn dissoc-tenant! [tid tkey]
   (fbdb/remove! (fb/tenants tid [tkey])))
-
-

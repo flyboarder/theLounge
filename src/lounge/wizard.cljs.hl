@@ -1,5 +1,5 @@
 (ns lounge.wizard
-  (:refer-hoplon :exclude [form])
+  (:refer-hoplon :exclude [form progress])
   (:require [semantic-ui.core :as semui]
             [semantic-ui.views.card :as semcard]
             [semantic-ui.elements.button :as sembtn]
@@ -12,6 +12,7 @@
             [semantic-ui.elements.step :as semsteps]
             [semantic-ui.elements.segment :as semseg]
             [semantic-ui.collections.menu :as semmenu]
+            [semantic-ui.collections.message :as semmsg]
             [semantic-ui.collections.form :as semfrm]
             [semantic-ui.collections.grid :as semgrid]
             [semantic-ui.modules.popup]
@@ -23,23 +24,58 @@
             [lounge.user :as user]
             [lounge.tenant :as tenant]
             [lounge.directory :as dir]
-            ;[lounge.forms :as forms]
+            [lounge.forms :as forms]
             [lounge.route :as route]
             [lounge.notifications :as notify]
             [clojure.string :as s]
             [goog.crypt.base64 :as base64])
   (:require-macros [lounge.forms :refer [defv defv= deferr deferr=]]))
 
-(defc wizardc nil)
+(defc= wizard (:setup tenant/tenant))
+(defc= progress (:progress wizard))
+(defc= stage (:stage wizard))
+(defc= process-label (:label wizard))
+
+(defc= wizard? (true? wizard))
+(defc= migrate? (= "migrate" (:mode wizard)))
+(defc= deploy? (= "deploy" (:mode wizard)))
+(defc= process? (or migrate? deploy?))
+
+(defc= migrate-contact? (and migrate? (= "contact" stage)))
+(defc= deploy-industry? (and deploy? (= "industry" stage)))
+(defc= wizard-cloud? (= "cloud" stage))
+
+(defn set-setup! [setup]
+  (tenant/assoc-tenant! (:id @tenant/tenant) [:setup] setup))
+
+(defn set-stage! [stage]
+  (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :stage] stage))
+
+(defn set-label! [label]
+  (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :label] label))
+
+(defn set-industry! [industry]
+  (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :industry] industry))
+
+(defn inc-progress! []
+  (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :progress]
+    (if @progress
+      (inc @progress)
+      1)))
+
+(defn progress! [stage label]
+  (comp (set-stage! stage)
+        (set-label! label)
+        (inc-progress!)))
 
 (defelem wizard-deploy [attr kids]
   (semcard/card
     :class [:blue]
-    :click #(comp (tenant/update-tenant! (:id @tenant/tenant) {:setup :deploy})
-                  (reset! wizardc :deploy))
+    :click #(set-setup! {:mode :deploy
+                         :label "What type of business are we setting up?"
+                         :stage :industry})
     (semcard/content
-      (semcard/content-header
-        "Deploy a business in the cloud.")
+      (semcard/content-header "Deploy a business in the cloud.")
       (semcard/content-description
         (semlist/list
           (semlist/item "Limited or no existing IT."))))))
@@ -47,183 +83,233 @@
 (defelem wizard-migrate [attr kids]
   (semcard/card
     :class [:blue]
-    :click #(comp (tenant/update-tenant! (:id @tenant/tenant) {:setup :migrate})
-                  (reset! wizardc :migrate))
+    :click #(set-setup! {:mode :migrate
+                         :label "Contact Info"
+                         :stage :contact})
     (semcard/content
-      (semcard/content-header
-        "Migrate a business to the cloud.")
+      (semcard/content-header "Migrate a business to the cloud.")
       (semcard/content-description
         (semlist/list
           (semlist/item "Existing IT? Free Migration Service."))))))
 
+(defelem wizard-entry [attr kids]
+  (ui/row
+    :toggle wizard?
+    (semgrid/column
+      :class [:center :aligned]
+      (semhdr/h2 "Hello, what would you like to do?")
+      (semcard/link-cards
+        :cards 1
+        :class [:centered]
+        (wizard-deploy)
+        (wizard-migrate)))))
+
+(defelem process-contact [attr kids]
+  (semsteps/step
+    attr
+    :icon [:phone :icon]
+    :title "Contact Info"
+    "Someone will be in touch!"
+    kids))
+
+(defelem process-industry [attr kids]
+  (semsteps/step
+    attr
+    :icon [:building :icon]
+    :title "Industry"
+    "Industry Customization."
+    kids))
+
+(defelem process-cloud [attr kids]
+  (semsteps/step
+    attr
+    :icon [:cloud :icon]
+    :title "Tenant Cloud"
+    "Cloud infrastructure provisioned."
+    kids))
+
+(defelem process-analysis [attr kids]
+  (semsteps/step
+    attr
+    :icon [:computer :icon]
+    :title "Analysis"
+    "IT needs identified."
+    kids))
+
+(defelem process-servers [attr kids]
+  (semsteps/step
+    attr
+    :icon [:server :icon]
+    :title "App Servers"
+    "App & Business Servers provisioned."
+    kids))
+
+(defelem process-support [attr kids]
+  (semsteps/step
+    attr
+    :icon [:life :ring :icon]
+    :title "Support"
+    "Choose your support option."
+    kids))
+
+(defelem wizard-process-steps [attr kids]
+  (semsteps/steps
+    attr
+    :steps true
+    :class [:top :attached]
+    kids))
+
+(defelem wizard-process [attr kids]
+  (ui/row
+    :toggle process?
+    (semgrid/column
+      :class [:left :aligned]
+      (wizard-process-steps
+        (process-contact
+          :toggle migrate?)
+        (process-industry
+          :toggle deploy?)
+        (process-cloud)
+        (process-analysis
+          :toggle migrate?)
+        (process-servers)
+        (process-support))
+      (semprog/progress
+        :class [:bottom :attached :blue]
+        :progress (cell= {:total (cond migrate? 5 deploy? 4) :value progress})
+        (semprog/bar))
+      (semdiv/horizontal-divider (text "~{process-label}")))))
+
+(defelem deploy-industry-retail [attr kids]
+  (semcard/card
+    :class [:blue]
+    :click #(comp (set-industry! :retail)
+                  (progress! :cloud "Cloud Infrastructure"))
+    (semcard/content
+      (semcard/content-header "Restaurant or Retailer")
+      (semcard/content-description
+        (semlist/list
+          (semlist/item "Brick and Mortar business.")
+          (semlist/item "Point of Sale systems."))))))
+
+(defelem deploy-industry-professional [attr kids]
+  (semcard/card
+    :class [:blue]
+    :click #(comp (set-industry! :professional)
+                  (progress! :cloud "Cloud Infrastructure"))
+    (semcard/content
+      (semcard/content-header "Professional Services")
+      (semcard/content-description
+        (semlist/list
+          (semlist/item "Accounting & Law")
+          (semlist/item "Architecture & Engineering"))))))
+
+(defelem deploy-industry-healthcare [attr kids]
+  (semcard/card
+    :class [:blue]
+    :click #(comp (set-industry! :healthcare)
+                  (progress! :cloud "Cloud Infrastructure"))
+    (semcard/content
+      (semcard/content-header "Healthcare")
+      (semcard/content-description
+        (semlist/list
+          (semlist/item "Dentists")
+          (semlist/item "Doctors & Pharmasists"))))))
+
+(defelem deploy-industry-government [attr kids]
+  (semcard/card
+    :class [:blue]
+    :click #(comp (set-industry! :government)
+                  (progress! :cloud "Cloud Infrastructure"))
+    (semcard/content
+      (semcard/content-header "Education & Government")
+      (semcard/content-description
+        (semlist/list
+          (semlist/item "Schools")
+          (semlist/item "Government Organizations"))))))
+
+(defelem deploy-industry-other [attr kids]
+  (semcard/card
+    :class [:blue]
+    :click #(progress! :cloud "Cloud Infrastructure")
+    (semcard/content
+      (semcard/content-header "IT & Other...")
+      (semcard/content-description
+        (semlist/list
+          (semlist/item "Go straight to the dashboard."))))))
+
+(defelem deploy-industry-cards [attr kids]
+  (semcard/link-cards
+    attr
+    :cards 2
+    :class [:centered :stackable]
+    kids))
+
+(defelem migrate-contact [attr kids]
+  (forms/user-info
+    attr
+    kids
+    (sembtn/buttons
+      :buttons true
+      (sembtn/basic-button
+        :class [:red]
+        :click #(set-setup! true)
+        "Cancel")
+      (sembtn/basic-button
+        :class [:green]
+        :click #(progress! :cloud "Cloud Infrastructure")
+        "Submit"))))
+
+(defelem wizard-contact [attr kids]
+  (ui/row
+    :toggle migrate-contact?
+    (semgrid/column
+      :class [:doubling]
+      :width 5
+      (migrate-contact))))
+
+(defelem wizard-industry [attr kids]
+  (ui/row
+    :toggle deploy-industry?
+    (semgrid/column
+      (deploy-industry-cards
+        (deploy-industry-retail)
+        (deploy-industry-professional)
+        (deploy-industry-healthcare)
+        (deploy-industry-government)
+        (deploy-industry-other)))))
+
+(defelem wizard-cloud [attr kids]
+  (ui/row
+    :toggle wizard-cloud?
+    (semgrid/column
+      (semmsg/info-message
+        :class [:compact]
+        (semhdr/h5 "Try Our Automation!")
+          "Give automation a try by pressing the button below.
+          Let us know if we can make this easier.")
+        (semcard/link-cards
+          :class [:centered]
+          (semcard/card
+            :class [:blue]
+            (semcard/content
+              (i :class [:huge :lightning :icon]))
+            (semcard/content
+              (semcard/content-header "Build My Cloud")
+              (semcard/content-description
+                "Get your business running online with a simple click."))))
+        (ui/segment
+          (semhdr/h2 "Congratulations!")
+          (p "Well done! Your cloud is being provisioned, go get yourself a coffee!")
+          (i :class [:massive :coffee :icon])))))
+
 (defelem dash [attr kids]
   (ui/row
-    :toggle (cell= (and tenant/tenant (:setup tenant/tenant)))
+    :toggle wizard
     (semgrid/grid
       :class [:middle :aligned :stackable]
-      (ui/row
-        :toggle (cell= (= "deploy" (:setup tenant/tenant)))
-        (semgrid/column
-          (semhdr/h2 "What type of business would you like to deploy?")
-          (semcard/link-cards
-            :cards 2
-            :class [:centered :one :stackable]
-            (semcard/card
-              :class [:blue]
-              (semcard/content
-                (semcard/content-header
-                  "Restaurant or Retailer")
-                (semcard/content-description
-                  (semlist/list
-                    (semlist/item "Brick and Morter business.")
-                    (semlist/item "Point of Sale systems.")))))
-            (semcard/card
-              :class [:blue]
-              (semcard/content
-                (semcard/content-header
-                  "Professional Services")
-                (semcard/content-description
-                  (semlist/list
-                    (semlist/item "Accounting & Law")
-                    (semlist/item "Architecture & Engineering")))))
-            (semcard/card
-              :class [:blue]
-              (semcard/content
-                (semcard/content-header
-                  "Healthcare")
-                (semcard/content-description
-                  (semlist/list
-                    (semlist/item "Dentists")
-                    (semlist/item "Doctors & Pharmasists")))))
-            (semcard/card
-              :class [:blue]
-              (semcard/content
-                (semcard/content-header
-                  "Education & Government")
-                (semcard/content-description
-                  (semlist/list
-                    (semlist/item "Schools")
-                    (semlist/item "Government Organizations")))))
-            (semcard/card
-              :class [:blue]
-              :click #(comp (tenant/dissoc-tenant! (:id @tenant/tenant) :setup)
-                            (route/dash!))
-              (semcard/content
-                (semcard/content-header
-                  "IT & Other...")
-                (semcard/content-description
-                  (semlist/list
-                    (semlist/item "Go straight to the dashboard."))))))))
-      (ui/row
-        :toggle (cell= (true? (:setup tenant/tenant)))
-        (semgrid/column
-          :class [:center :aligned]
-          (semhdr/h2 "Hello, what would you like to do?")
-          (semcard/link-cards
-            :class [:centered :one]
-            (wizard-deploy)
-            (wizard-migrate))))
-      (ui/row
-        :toggle (cell= (= "migrate" (:setup tenant/tenant)))
-        (let [labelc (cell "Contact Info")]
-          (semgrid/column
-          :class [:left :aligned]
-          (semsteps/steps
-            :steps true
-            :class [:top :attached]
-            (semsteps/step
-              :icon [:phone :icon]
-              :title "Contact"
-              "Someone will be in touch!")
-            (semsteps/step
-              :icon [:computer :icon]
-              :title "Analysis"
-              "IT needs identified.")
-            (semsteps/step
-              :icon [:cloud :icon]
-              :title "Public Cloud"
-              "Cloud infrastructure provisioned.")
-            (semsteps/step
-              :icon [:server :icon]
-              :title "App Servers"
-              "App & Business Servers provisioned.")
-            (semsteps/step
-              :icon [:life :ring :icon]
-              :title "Support"
-              "Choose your support option."))
-          (let [progressc (cell 0)]
-            (semprog/progress
-            :class [:bottom :attached :blue]
-            :progress (cell= {:total 5 :value progressc})
-            (semprog/bar)))
-          (semdiv/horizontal-divider (text "~{labelc}")))))
-        (ui/row
-          :class [:centered]
-        :toggle (cell= (= "migrate" (:setup tenant/tenant)))
-        (semgrid/column
-          :class [:left :aligned]
-          :width 5
-          (let [contactc (cell nil)]
-          (semfrm/form
-            :toggle true
-            (semseg/basic-segment
-              (semfrm/field
-                (label "Full Name")
-                (seminpt/icon-input
-                  :class [:left]
-                  (i :class [:user :icon])
-                  (hoplon.core/input
-                    :type "text"
-                    :placeholder "Full Name"
-                    :data-content "Please enter your full name."
-                    :popup {:on "hover"}
-                    :change #(user/assoc-user! :name @%)
-                    :value (cell= (:name user/user)))))
-              (semfrm/field
-                (label "Email")
-                (seminpt/icon-input
-                  :class [:left]
-                  (i :class [:mail :icon])
-                  (hoplon.core/input
-                    :type "text"
-                    :placeholder "Email"
-                    :data-content "Please enter your email address."
-                    :popup {:on "hover"}
-                    :change #(user/assoc-user! :email @%)
-                    :value (cell= (:email user/user)))))
-              (semfrm/field
-                (label "Phone Number")
-                (seminpt/icon-input
-                  :class [:left]
-                  (i :class [:phone :icon])
-                  (hoplon.core/input
-                    :type "text"
-                    :placeholder "Phone Number"
-                    :data-content "Please enter a number we can reach you at."
-                    :popup {:on "hover"}
-                    :change #(user/assoc-user! :phone @%)
-                    :value (cell= (:phone user/user)))))
-              (sembtn/buttons
-                :buttons true
-                :class [:two]
-                (sembtn/button
-                  :class [:basic :red]
-                  :click #(tenant/update-tenant! (:id @tenant/tenant) {:setup true})
-                  "Cancel")
-                (sembtn/button
-                  :class [:basic :green]
-                  :click #(comp
-                            ;(.post js/jQuery "https://hooks.slack.com/services/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"
-                            ;          (.stringify js/JSON #js {:text "Test slack post!"}))
-                            (.ajax js/jQuery "https://degree9.zendesk.com/api/v2/requests.json"
-                                   (clj->js  {:crossDomain true
-                                              :data {:ticket {:requester {:name "The Customer" :email "thecustomer@domain.com"}
-                                                              :subject "My printer is on fire!"
-                                                              :comment {:body "The smoke is very colorful."}}}
-                                              :dataType "json"
-                                              :method "POST"
-                                              :username "help@degree9.io/token"
-                                              :password "VbwKDMzo1fOXNpvcLA1uaHpg5tmFDhZJfbLZDiTs"
-                                              }) prn)
-                            (prn "Submit!"))
-                  "Submit"))))))))))
+      (wizard-entry)
+      (wizard-process)
+      (wizard-contact)
+      (wizard-industry)
+      (wizard-cloud))))

@@ -22,58 +22,63 @@
             [lounge.tenant :as tenant]
             [lounge.directory :as dir]
             [lounge.route :as route]
+            [lounge.ui :as ui]
             [lounge.notifications :as notify]
             [clojure.string :as s])
-  ;(:require-macros [lounge.forms :refer [defv defv= deferr deferr=]])
+  (:require-macros [lounge.forms :refer [defv defv= deferr deferr=]])
   )
 
-(defelem user [attr kids]
-  (let []
-    (semfrm/form
-      (semseg/basic-segment
-        (semfrm/field
-          (label "Full Name")
-          (seminpt/icon-input
-            :class [:left]
-            (i :class [:user :icon])
-            (hoplon.core/input
-              :type "text"
-              :placeholder "Full Name"
-              :data-content "Please enter your full name."
-              :popup {:on "hover"}
-              :change #(user/assoc-user! :name @%)
-              :value (cell= (:name user/user)))))
-        (semfrm/field
-          (label "Email")
-          (seminpt/icon-input
-            :class [:left]
-            (i :class [:mail :icon])
-            (hoplon.core/input
-              :type "text"
-              :placeholder "Email"
-              :data-content "Please enter your email address."
-              :popup {:on "hover"}
-              :change #(user/assoc-user! :email @%)
-              :value (cell= (:email user/user)))))
-        (semfrm/field
-          (label "Phone Number")
-          (seminpt/icon-input
-            :class [:left]
-            (i :class [:phone :icon])
-            (hoplon.core/input
-              :type "text"
-              :placeholder "Phone Number"
-              :data-content "Please enter a number we can reach you at."
-              :popup {:on "hover"}
-              :change #(user/assoc-user! :phone @%)
-              :value (cell= (:phone user/user)))))
-        (sembtn/buttons
-          :buttons true
-          (sembtn/button
-            :class [:basic :red]
-            :click #(tenant/update-tenant! (:id @tenant/tenant) {:setup true})
-            "Cancel")
-          (sembtn/button
-            :class [:basic :green]
-            :click #(comp (prn "Submit!"))
-            "Submit"))))))
+(defelem icon-text-input [attr kids]
+  (seminpt/icon-input
+    :class [:left]
+    (i :class (into (:icon attr) [:icon]))
+    (hoplon.core/input
+      attr
+      :type "text"
+      :popup {:on "hover"}
+      kids)))
+
+(defelem user-name [attr kids]
+  (semfrm/required-field
+    (label "Full Name")
+    (icon-text-input
+      attr
+      :icon [:user]
+      :placeholder "Full Name"
+      :data-content "Please enter your full name."
+      :change #(user/assoc-user! :name @%)
+      :value (cell= (:name user/user)
+      kids))))
+
+(defelem user-email [attr kids]
+  (semfrm/required-field
+    (label "Email")
+    (icon-text-input
+      attr
+      :icon [:mail]
+      :placeholder "Email"
+      :data-content "Please enter your email address."
+      :change #(user/assoc-user! :email @%)
+      :value (cell= (:email user/user))
+      kids)))
+
+(defelem user-phone [attr kids]
+  (semfrm/required-field
+    (label "Phone Number")
+    (icon-text-input
+      attr
+      :icon [:phone]
+      :placeholder "Phone Number"
+      :data-content "Please enter a number we can reach you at."
+      :change #(user/assoc-user! :phone @%)
+      :value (cell= (:phone user/user))
+      kids)))
+
+(defelem user-info [attr kids]
+  (semfrm/form
+    attr
+    (ui/segment
+      (user-name)
+      (user-email)
+      (user-phone)
+      kids)))

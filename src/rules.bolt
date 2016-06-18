@@ -16,6 +16,9 @@ getTenant(id) {root.tenants[id]}
 getRole(id) {root.roles[id]}
 getSetting(id) {root.settings[id]}
 
+isDegree9(uid) {hasUser(getTenant("degree9"), uid)}
+
+path / is Root;
 path /directory is Directory;
 path /directory/blocked/{block} is DirectoryBlocked | Null;
 path /directory/tenants/{tenant} is DirectoryTenants | Null;
@@ -28,6 +31,10 @@ path /roles/{role} is Role | Null;
 path /billing/{tenant} is BillingTenant | Null;
 path /notifications/{user} is Notifications | Null;
 
+type Root extends Object{
+
+  read() {isDegree9(auth.uid)}
+}
 type Directory extends Object{
 
   read() {isAuth()}
@@ -62,8 +69,8 @@ type Tenant extends Object{
   users: Object,
   enabled: Boolean | Null,
   support: String | Null,
-  type: String | Null,
-  setup: Boolean | String | Null
+  industry: String | Null,
+  setup: Boolean | Object | Null
 
   read()   {hasUser(this, auth.uid) || isDefault(tenant)}
   create() {hasUser(this, auth.uid)}

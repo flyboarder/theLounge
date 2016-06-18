@@ -56,6 +56,45 @@
     (semgrid/column
       (ui/logo))))
 
+(defelem login-button [attr kids]
+  (sembtn/button
+    :class (into [:fluid] (:class attr))
+    ;:toggle (cell= (or (nil? auth/pending-link) (contains? (:providers auth/pending-link) (:providerid attr))))
+    :click #(auth/login! (:provider attr))
+    (i :class [(:icon attr) :icon])
+    kids))
+
+;(defelem link-button [attr kids]
+;  (sembtn/button
+;    :class (into [:fluid] (:class attr))
+;    :click #(auth/link! (:provider attr))
+;    (i :class [(:icon attr) :icon])
+;    kids))
+
+(defelem login-github [_ _]
+  (login-button
+    :class [:github]
+    :icon :github
+    :providerid "github.com"
+    :provider auth/github-provider
+    "Login with Github"))
+
+(defelem login-google [_ _]
+  (login-button
+    :class [:google :plus]
+    :icon :google
+    :providerid "google.com"
+    :provider auth/google-provider
+    "Login with Google"))
+
+(defelem login-facebook [_ _]
+  (login-button
+    :class [:facebook]
+    :icon :facebook
+    :providerid "facebook.com"
+    :provider auth/facebook-provider
+    "Login with Facebook"))
+
 (defelem login [attr kids]
   (ui/row
     :toggle (cell= (not user/isAuth?))
@@ -69,39 +108,24 @@
               :class [:blue]
               :css {:padding "38px"}
               (semfrm/field
-                (sembtn/button
-                  :class [:fluid :github]
-                  :toggle (cell= (or (nil? auth/pending-link) (contains? (:providers auth/pending-link) "github.com")))
-                  :click #(auth/login! auth/github-provider)
-                  (i :class [:github :icon])
-                  "Login with Github"))
-                  (semfrm/field
-                    (sembtn/button
-                      :class [:fluid :google :plus]
-                      :toggle (cell= (or (nil? auth/pending-link) (contains? (:providers auth/pending-link) "google.com")))
-                      :click #(auth/login! auth/google-provider)
-                      (i :class [:google :icon])
-                      "Login with Google"))
-                      (semfrm/field
-                        (sembtn/button
-                          :class [:fluid :facebook]
-                          :toggle (cell= (or (nil? auth/pending-link) (contains? (:providers auth/pending-link) "facebook.com")))
-                          :click #(auth/login! auth/facebook-provider)
-                          (i :class [:facebook :icon])
-                          "Login with Facebook")))
-                          (semmsg/warning-message
-                            (loop-tpl :bindings [m (cell= (list (:msg auth/pending-link)))]
-                            (p m)))))))))
+                (login-github))
+              (semfrm/field
+                (login-google))
+              (semfrm/field
+                (login-facebook)))
+            (semmsg/warning-message
+              (loop-tpl :bindings [m (cell= (list (:msg auth/pending-link)))]
+              (p m)))))))))
 
 (defelem dash [attr kids]
-  (semcont/container
-    :id "dash"
+  (div
     (toolbar)
-    (semgrid/grid
-      (header)
-      (login)
-      (notify/dash)
-      (setup/dash)
-      (wizard/dash)
-      (nav/dash))
-    ))
+    (semcont/container
+      :id "dash"
+      (semgrid/grid
+        (header)
+        (login)
+        (notify/dash)
+        (setup/dash)
+        (wizard/dash)
+        (nav/dash)))))

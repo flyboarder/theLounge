@@ -29,6 +29,12 @@
     attr
     (cards kids)))
 
+(defelem segment [attr kids]
+  (semseg/segment
+    attr
+    :class [:blue]
+    kids))
+
 (defelem row [attr kids]
   (semui/extelem
     attr
