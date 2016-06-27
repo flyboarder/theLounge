@@ -1,0 +1,57 @@
+(ns lounge.datacenters
+  (:require [cljsjs.firebase]
+            [firebase-cljs.database :as fbdb]
+            [lounge.firebase :as fb]
+            [lounge.notifications :as notify]
+            [lounge.util :as util]))
+
+(defc datacenters-fb nil)
+(defc datacenters-default nil)
+
+(defc= datacenters
+  (util/deep-merge datacenters-default datacenters-fb))
+(cell= (prn "datacenters: " datacenters))
+(def datacenter-failure! #(notify/error! :user_permission "Permissions Error!" (str "You do not have permission to access Datacenter: " %)))
+
+(defn listen-datacenters [tid state]
+  (fbdb/listen (fb/datacenters) tid "value" #(reset! state (fb/fb->clj %)) #(datacenter-failure! tid)))
+
+(defn login []
+  (listen-datacenters "default" datacenters-default))
+
+(defn logout [tid]
+  (fbdb/disable-listener! (fb/datacenters "default") "value")
+  (when @datacenters
+    (fbdb/disable-listener! (fb/datacenters tid) "value"))
+  (reset! datacenters-fb nil)
+  (reset! datacenters-default nil))
+
+(defn action* [url data]
+  (.ajax js/jQuery url
+    (clj->js {:method "POST"
+              :data (util/clj->json data)
+              :dataType "json"
+              :contentType "application/json; charset=utf-8"
+              :jsonp false})))
+
+(defn action! [dc action adat]
+  (let [dc (get-in @datacenters [dc])
+        action (get-in dc [:actions action])
+        trigger (get-in dc [:triggers (keyword (:trigger action))])
+        url (:url action)
+        host (:host action)]
+    (prn action trigger url host)
+    (action* trigger (assoc adat :actionUrl url :actionHost host))))
+;https://thelounge.azurewebsites.net/api/TriggerNodeJS?code=va7agxdvai6rk1p10t1sv2t9thudtsczs42e7z51ugly58kt90iynnr1c6sttllu11dvuin3ik9
+;#(.done (.ajax js/jQuery "https://thelounge.azurewebsites.net/api/HttpTriggerNodeJS1?code=klrv4ofckbbmxbvtjyhm8ia4il4jj0v8o043blfzksc5v78pvizqcpvqfr1ox21m04hgyfd2t9"
+; (clj->js {:method "POST"
+;           :data (util/clj->json
+;                    {:accessToken %
+;                     :tenantId (:id @tenant/tenant)
+;                     :cloudType :public
+;                     :cloudName :azure
+;                     :action :init})
+;           :dataType "json"
+;           :contentType "application/json; charset=utf-8"
+;           :jsonp false})
+;) (fn [& x] (.log js/console x)))

@@ -15,12 +15,18 @@
 (defc user-role nil)
 
 (defc user-notifications nil)
-
-(defc= user (merge user-auth
+(cell= (prn "user-fb " user-fb))
+(cell= (prn "user-fb " user-fb))
+(defc= user (merge (when user-auth
+                      {:uid (fbuser/uid user-auth)
+                      :email (fbuser/email user-auth)
+                      :name (fbuser/name user-auth)
+                      :photo (fbuser/photo-url user-auth)
+                      :verified (fbuser/verified? user-auth)})
                    user-fb
                    (when user-role
                      {:role user-role})))
-(cell= (prn user))
+(cell= (prn "User: " user))
 (defc= user-tenants (set (vals (:tenants user))))
 
 (defc= isAuth? (not (nil? user)))
@@ -50,13 +56,7 @@
    (fbuser/photo-url u)))
 
 (defn auth-data! [user]
-  (reset!
-    user-auth
-    {:uid (uid user)
-     :email (email user)
-     :name (name user)
-     :photo (photo user)
-     :verified (fbuser/verified? user)}))
+  (reset! user-auth user))
 
 (defn add-tenant! [tid]
   (fbdb/conj! (fb/users (:uid @user) [:tenants]) tid))

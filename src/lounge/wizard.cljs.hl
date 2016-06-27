@@ -19,78 +19,96 @@
             [semantic-ui.modules.modal :as modal]
             [semantic-ui.modules.progress :as semprog]
             [semantic-ui.views.item :as semitm]
+            [firebase-cljs.user :as fbuser]
+            [firebase-cljs.promise :as fbprom]
             [lounge.ui :as ui]
             [lounge.firebase :as fb]
             [lounge.user :as user]
             [lounge.tenant :as tenant]
+            [lounge.user :as user]
             [lounge.directory :as dir]
+            [lounge.datacenters :as dc]
             [lounge.forms :as forms]
             [lounge.route :as route]
             [lounge.notifications :as notify]
+            [lounge.util :as util]
             [clojure.string :as s]
             [goog.crypt.base64 :as base64])
   (:require-macros [lounge.forms :refer [defv defv= deferr deferr=]]))
 
+(def industry-stage [:industry {:title "Your Industry"
+                                :label "Which best describes your business?"
+                                :icon [:building :icon]}])
+(def contact-stage  [:contact  {:title "Contact Info"
+                                :label "Please update your profile."
+                                :icon [:phone :icon]}])
+(def apps-stage     [:apps     {:title "App Services"
+                                :label "Which services do you need?"
+                                :icon [:server :icon]}])
+(def support-stage  [:support  {:title "Support"
+                                :label "Select your support level."
+                                :icon [:life :ring :icon]}])
+
+(def wizard-deploy  {:stages (merge {} industry-stage apps-stage support-stage)
+                     :title "Deploy a business in the cloud."
+                     :description ["Limited or no existing IT."]})
+(def wizard-migrate {:stages (merge {} contact-stage apps-stage support-stage)
+                     :title "Migrate a business to the cloud."
+                     :description ["Existing IT? Free Migration Service."]})
+
+(def wizard-config {:deploy wizard-deploy :migrate wizard-migrate})
+
 (defc= wizard (:setup tenant/tenant))
 (defc= progress (:progress wizard))
 (defc= stage (:stage wizard))
-(defc= process-label (:label wizard))
+(defc= mode (:mode wizard))
+(defc= wizard-stages (get-in wizard-config [(keyword mode) :stages]))
+(defc= stage-label (get-in wizard-stages [(keyword stage) :label]))
 
 (defc= wizard? (true? wizard))
-(defc= migrate? (= "migrate" (:mode wizard)))
-(defc= deploy? (= "deploy" (:mode wizard)))
+(defc= migrate? (= mode "migrate"))
+(defc= deploy? (= mode "deploy"))
 (defc= process? (or migrate? deploy?))
 
-(defc= migrate-contact? (and migrate? (= "contact" stage)))
-(defc= deploy-industry? (and deploy? (= "industry" stage)))
-(defc= wizard-cloud? (= "cloud" stage))
+(cell= (prn "wiz-stages: " wizard-stages))
 
 (defn set-setup! [setup]
   (tenant/assoc-tenant! (:id @tenant/tenant) [:setup] setup))
 
+(defn reset-setup! []
+  (set-setup! true))
+
 (defn set-stage! [stage]
   (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :stage] stage))
-
-(defn set-label! [label]
-  (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :label] label))
 
 (defn set-industry! [industry]
   (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :industry] industry))
 
 (defn inc-progress! []
   (tenant/assoc-tenant! (:id @tenant/tenant) [:setup :progress]
-    (if @progress
-      (inc @progress)
-      1)))
+    (if @progress (inc @progress) 1)))
 
-(defn progress! [stage label]
-  (comp (set-stage! stage)
-        (set-label! label)
-        (inc-progress!)))
+(defn progress! [stage]
+  (set-stage! stage)
+  (inc-progress!))
 
-(defelem wizard-deploy [attr kids]
+(defelem wizard-mode [attr kids]
   (semcard/card
     :class [:blue]
-    :click #(set-setup! {:mode :deploy
-                         :label "What type of business are we setting up?"
-                         :stage :industry})
+    :click (:click attr)
     (semcard/content
-      (semcard/content-header "Deploy a business in the cloud.")
+      (semcard/content-header (:title attr))
       (semcard/content-description
         (semlist/list
-          (semlist/item "Limited or no existing IT."))))))
+          (map semlist/item (:description attr)))))))
 
-(defelem wizard-migrate [attr kids]
-  (semcard/card
-    :class [:blue]
-    :click #(set-setup! {:mode :migrate
-                         :label "Contact Info"
-                         :stage :contact})
-    (semcard/content
-      (semcard/content-header "Migrate a business to the cloud.")
-      (semcard/content-description
-        (semlist/list
-          (semlist/item "Existing IT? Free Migration Service."))))))
+(defn wizard-modes []
+  (map wizard-mode
+    (map (fn [[mode {:keys [title description stages]}]]
+      {:title title
+       :description description
+       :click #(set-setup! {:mode mode :stage (ffirst stages)})})
+      wizard-config)))
 
 (defelem wizard-entry [attr kids]
   (ui/row
@@ -101,207 +119,84 @@
       (semcard/link-cards
         :cards 1
         :class [:centered]
-        (wizard-deploy)
-        (wizard-migrate)))))
-
-(defelem process-contact [attr kids]
-  (semsteps/step
-    attr
-    :icon [:phone :icon]
-    :title "Contact Info"
-    "Someone will be in touch!"
-    kids))
-
-(defelem process-industry [attr kids]
-  (semsteps/step
-    attr
-    :icon [:building :icon]
-    :title "Industry"
-    "Industry Customization."
-    kids))
-
-(defelem process-cloud [attr kids]
-  (semsteps/step
-    attr
-    :icon [:cloud :icon]
-    :title "Tenant Cloud"
-    "Cloud infrastructure provisioned."
-    kids))
-
-(defelem process-analysis [attr kids]
-  (semsteps/step
-    attr
-    :icon [:computer :icon]
-    :title "Analysis"
-    "IT needs identified."
-    kids))
-
-(defelem process-servers [attr kids]
-  (semsteps/step
-    attr
-    :icon [:server :icon]
-    :title "App Servers"
-    "App & Business Servers provisioned."
-    kids))
-
-(defelem process-support [attr kids]
-  (semsteps/step
-    attr
-    :icon [:life :ring :icon]
-    :title "Support"
-    "Choose your support option."
-    kids))
-
-(defelem wizard-process-steps [attr kids]
-  (semsteps/steps
-    attr
-    :steps true
-    :class [:top :attached]
-    kids))
+        (wizard-modes)))))
 
 (defelem wizard-process [attr kids]
   (ui/row
-    :toggle process?
-    (semgrid/column
-      :class [:left :aligned]
-      (wizard-process-steps
-        (process-contact
-          :toggle migrate?)
-        (process-industry
-          :toggle deploy?)
-        (process-cloud)
-        (process-analysis
-          :toggle migrate?)
-        (process-servers)
-        (process-support))
+    :toggle mode
+    (semgrid/left-column
+      (semsteps/top-attached-steps
+        (loop-tpl :bindings [[_ stage] wizard-stages]
+          (semsteps/step :icon (:icon @stage) :title (:title @stage))))
       (semprog/progress
         :class [:bottom :attached :blue]
-        :progress (cell= {:total (cond migrate? 5 deploy? 4) :value progress})
+        :progress (cell= {:value progress :total (count wizard-stages)})
         (semprog/bar))
-      (semdiv/horizontal-divider (text "~{process-label}")))))
-
-(defelem deploy-industry-retail [attr kids]
-  (semcard/card
-    :class [:blue]
-    :click #(comp (set-industry! :retail)
-                  (progress! :cloud "Cloud Infrastructure"))
-    (semcard/content
-      (semcard/content-header "Restaurant or Retailer")
-      (semcard/content-description
-        (semlist/list
-          (semlist/item "Brick and Mortar business.")
-          (semlist/item "Point of Sale systems."))))))
-
-(defelem deploy-industry-professional [attr kids]
-  (semcard/card
-    :class [:blue]
-    :click #(comp (set-industry! :professional)
-                  (progress! :cloud "Cloud Infrastructure"))
-    (semcard/content
-      (semcard/content-header "Professional Services")
-      (semcard/content-description
-        (semlist/list
-          (semlist/item "Accounting & Law")
-          (semlist/item "Architecture & Engineering"))))))
-
-(defelem deploy-industry-healthcare [attr kids]
-  (semcard/card
-    :class [:blue]
-    :click #(comp (set-industry! :healthcare)
-                  (progress! :cloud "Cloud Infrastructure"))
-    (semcard/content
-      (semcard/content-header "Healthcare")
-      (semcard/content-description
-        (semlist/list
-          (semlist/item "Dentists")
-          (semlist/item "Doctors & Pharmasists"))))))
-
-(defelem deploy-industry-government [attr kids]
-  (semcard/card
-    :class [:blue]
-    :click #(comp (set-industry! :government)
-                  (progress! :cloud "Cloud Infrastructure"))
-    (semcard/content
-      (semcard/content-header "Education & Government")
-      (semcard/content-description
-        (semlist/list
-          (semlist/item "Schools")
-          (semlist/item "Government Organizations"))))))
-
-(defelem deploy-industry-other [attr kids]
-  (semcard/card
-    :class [:blue]
-    :click #(progress! :cloud "Cloud Infrastructure")
-    (semcard/content
-      (semcard/content-header "IT & Other...")
-      (semcard/content-description
-        (semlist/list
-          (semlist/item "Go straight to the dashboard."))))))
-
-(defelem deploy-industry-cards [attr kids]
-  (semcard/link-cards
-    attr
-    :cards 2
-    :class [:centered :stackable]
-    kids))
-
-(defelem migrate-contact [attr kids]
-  (forms/user-info
-    attr
-    kids
-    (sembtn/buttons
-      :buttons true
-      (sembtn/basic-button
-        :class [:red]
-        :click #(set-setup! true)
-        "Cancel")
-      (sembtn/basic-button
-        :class [:green]
-        :click #(progress! :cloud "Cloud Infrastructure")
-        "Submit"))))
+      (semdiv/horizontal-divider (text "~{stage-label}")))))
 
 (defelem wizard-contact [attr kids]
   (ui/row
-    :toggle migrate-contact?
-    (semgrid/column
-      :class [:doubling]
+    :toggle (cell= (= stage "contact"))
+    (semgrid/doubling-column
       :width 5
-      (migrate-contact))))
+      (forms/user-info
+        (ui/positive-negative-buttons
+          :positive #(progress! :apps)
+          :negative #(reset-setup!)
+          "Cancel"
+          "Submit")))))
+
+(defelem industry-card [attr kids]
+  (semcard/card
+    :class [:blue]
+    :click #(comp (set-industry! (:industry attr))
+                  (progress! :apps))
+    (semcard/content
+      (semcard/content-header (:title attr))
+      (semcard/content-description
+        (semlist/list
+          (map semlist/item (:description attr)))))))
+
+(defn deploy-industries []
+  (map industry-card
+    [{:title "Restaurant or Retailer"
+      :description ["Point of Sale systems."
+                    "Brick and Mortar business."]
+      :industry :retail}
+     {:title "Professional Services"
+      :description ["Accounting & Law"
+                    "Architecture & Engineering"]
+      :industry :professional}
+     {:title "Healthcare"
+      :description ["Dentists"
+                    "Doctors & Pharmasists"]
+      :industry :healthcare}
+     {:title "Education & Government"
+      :description ["Schools"
+                    "Government Organizations"]
+      :industry :government}
+     {:title "IT & Other"
+      :description ["IT Consultants" "IT Consultants"]
+      :industry :other}]))
 
 (defelem wizard-industry [attr kids]
   (ui/row
-    :toggle deploy-industry?
+    :toggle (cell= (= stage "industry"))
     (semgrid/column
-      (deploy-industry-cards
-        (deploy-industry-retail)
-        (deploy-industry-professional)
-        (deploy-industry-healthcare)
-        (deploy-industry-government)
-        (deploy-industry-other)))))
+      (semcard/link-cards
+        :class [:centered :stackable]
+        :cards 2
+        (deploy-industries)))))
 
-(defelem wizard-cloud [attr kids]
+(defelem wizard-apps [attr kids]
   (ui/row
-    :toggle wizard-cloud?
+    :toggle (cell= (= stage "apps"))
     (semgrid/column
-      (semmsg/info-message
-        :class [:compact]
-        (semhdr/h5 "Try Our Automation!")
-          "Give automation a try by pressing the button below.
-          Let us know if we can make this easier.")
-        (semcard/link-cards
-          :class [:centered]
-          (semcard/card
-            :class [:blue]
-            (semcard/content
-              (i :class [:huge :lightning :icon]))
-            (semcard/content
-              (semcard/content-header "Build My Cloud")
-              (semcard/content-description
-                "Get your business running online with a simple click."))))
-        (ui/segment
-          (semhdr/h2 "Congratulations!")
-          (p "Well done! Your cloud is being provisioned, go get yourself a coffee!")
-          (i :class [:massive :coffee :icon])))))
+      (semcard/link-cards
+        :class [:centered :stackable]
+        :cards 4
+        (loop-tpl :bindings [_ (cell nil)]
+          (semcard/card))))))
 
 (defelem dash [attr kids]
   (ui/row
@@ -311,5 +206,4 @@
       (wizard-entry)
       (wizard-process)
       (wizard-contact)
-      (wizard-industry)
-      (wizard-cloud))))
+      (wizard-industry))))

@@ -90,7 +90,7 @@
   (div
     (loop-tpl
       :bindings [[severity notify] (:data-notifications attr)]
-      (semmsg/compact-message
+      (semmsg/message
         :class (cell= (when severity [severity]))
         (i :class [:close :icon]
            :click #(remove-notifications! @severity))

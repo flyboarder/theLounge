@@ -21,7 +21,7 @@
 
 (defn fb->clj
   [fb]
-  (-> fb fbsnap/get-value (js->clj :keywordize-keys true)))
+  (-> fb fbsnap/val (js->clj :keywordize-keys true)))
 
 (defn users
   ([] (fbdb/get-in db [:users]))
@@ -47,6 +47,16 @@
   ([] (fbdb/get-in db [:directory]))
   ([d] (fbdb/get-in (directory) d))
   ([d korks] (fbdb/get-in (directory d) korks)))
+
+(defn datacenters
+  ([] (fbdb/get-in db [:datacenters]))
+  ([d] (fbdb/get-in (datacenters) d))
+  ([d korks] (fbdb/get-in (datacenters d) korks)))
+
+(defn services
+  ([] (fbdb/get-in db [:services]))
+  ([d] (fbdb/get-in (services) d))
+  ([d korks] (fbdb/get-in (services d) korks)))
 
 (defn listen-val
   ([fbref state] (fbdb/listen fbref "value" #(reset! state (fb->clj %))))

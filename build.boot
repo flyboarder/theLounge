@@ -69,7 +69,8 @@
     (target)
     (serve)
     (speak)
-    (tests)))
+    ;(tests)
+    ))
 
 (deftask prod
   "Build theLounge for production deployment."

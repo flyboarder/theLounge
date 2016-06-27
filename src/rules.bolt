@@ -16,7 +16,7 @@ getTenant(id) {root.tenants[id]}
 getRole(id) {root.roles[id]}
 getSetting(id) {root.settings[id]}
 
-isDegree9(uid) {hasUser(getTenant("degree9"), uid)}
+isDegree9() {hasUser(getTenant("degree9"), auth.uid)}
 
 path / is Root;
 path /directory is Directory;
@@ -25,98 +25,149 @@ path /directory/tenants/{tenant} is DirectoryTenants | Null;
 path /directory/pending/{tenant} is DirectoryPending | Null;
 path /users/{user} is User;
 path /users/{user}/tenants/{tenant} is String | Null;
-path /tenants/{tenant} is Tenant | Null;
-path /settings/{setting} is Setting | Null;
-path /roles/{role} is Role | Null;
-path /billing/{tenant} is BillingTenant | Null;
-path /notifications/{user} is Notifications | Null;
+path /tenants/{tenant} is Tenant;
+path /datacenters/{tenant} is DatacenterTenant;
+path /datacenters/{tenant}/{datacenter} is Datacenter | Null;
+path /datacenters/{tenant}/{datacenter}/actions is DatacenterActions | Null;
+path /datacenters/{tenant}/{datacenter}/actions/{action} is DatacenterAction | Null;
+path /datacenters/{tenant}/{datacenter}/triggers/{trigger} is DatacenterTrigger | Null;
+path /datacenters/{tenant}/{datacenter}/services/{service} is DatacenterService | Null;
+path /datacenters/{tenant}/{datacenter}/services/{service}/actions is DatacenterActions | Null;
+path /datacenters/{tenant}/{datacenter}/services/{service}/actions/{action} is DatacenterAction | Null;
+path /services/{tenant} is ServiceTenant;
+path /services/{tenant}/{datacenter}/{service} is Service;
+path /services/{tenant}/{datacenter}/{service}/instances/{instance} is ServiceInstance;
+path /settings/{setting} is Setting;
+path /roles/{role} is Role;
+path /billing/{tenant} is BillingTenant;
+path /notifications/{user} is Notifications;
 
-type Root extends Object{
-
-  read() {isDegree9(auth.uid)}
-}
-type Directory extends Object{
-
-  read() {isAuth()}
-}
-
-type DirectoryBlocked extends String{
-
-}
-
-type DirectoryTenants extends String{
-
-  create() {isAuth() && isNull(prior(this))}
-}
-
-type DirectoryPending extends Object{
-
-  create() {isAuth() && isNull(prior(this))}
-}
-
-type User extends Object{
-  email: String | Null,
-  name: String | Null,
-  photo: String | Null,
-  phone: String | Null,
-  enabled: Boolean | Null,
+type SelfSec extends Object {
 
   read()   {isCurrent(user) || isDefault(user)}
   write()  {isCurrent(user)}
 }
 
-type Tenant extends Object{
-  users: Object,
-  enabled: Boolean | Null,
-  support: String | Null,
-  industry: String | Null,
-  setup: Boolean | Object | Null
+type TenantLocalSec extends Object {
 
   read()   {hasUser(this, auth.uid) || isDefault(tenant)}
   create() {hasUser(this, auth.uid)}
   update() {hasUser(prior(this), auth.uid)}
 }
 
-type Notifications extends Object {
+type TenantSec extends Object {
+
+  read()   {hasUser(getTenant(tenant), auth.uid) || isDefault(tenant)}
+  create() {hasUser(getTenant(tenant), auth.uid)}
+  update() {hasUser(prior(getTenant(tenant)), auth.uid)}
+}
+
+type Root extends Object {
+
+  read() {isDegree9()}
+}
+type Directory extends Object {
+
+  read() {isAuth()}
+}
+
+type DirectoryBlocked extends String {
+}
+
+type DirectoryTenants extends String {
+
+  create() {isAuth() && isNull(prior(this))}
+}
+
+type DirectoryPending extends Object {
+
+  create() {isAuth() && isNull(prior(this))}
+}
+
+type User extends SelfSec {
+  email: String | Null,
+  name: String | Null,
+  photo: String | Null,
+  phone: String | Null,
+  enabled: Boolean | Null,
+
+}
+
+type Tenant extends TenantLocalSec {
+  users: Object,
+  enabled: Boolean | Null,
+  support: String | Null,
+  industry: String | Null,
+  setup: Boolean | Object | Null
+
+}
+
+type DatacenterTenant extends TenantSec {
+}
+
+type Datacenter extends Object {
+}
+
+type DatacenterTrigger extends String {
+}
+
+type DatacenterService extends Object {
+}
+
+type DatacenterAction extends Object {
+    trigger: String,
+    host: String,
+    url: String
+}
+
+type DatacenterActions extends Object {
+    init: DatacenterAction,
+    destroy: DatacenterAction,
+    start: DatacenterAction,
+    shutdown: DatacenterAction
+}
+
+type ServiceTenant extends TenantSec {
+}
+
+type Service extends Object {
+    settings: Object | Null
+}
+
+type ServiceInstance extends Object {
+}
+
+type Notifications extends SelfSec {
   info: Notification | Null,
   success: Notification | Null,
   warning: Notification | Null,
   error: Notification | Null
 
-
-  read()  {isCurrent(user) || isDefault(user)}
-  write() {isCurrent(user)}
 }
 
 type Notification extends Object {
 }
 
-type Setting extends Object{
+type Setting extends Object {
   enabled: Boolean
 
   read()  {true}
   write() {false}
 }
 
-type Role extends Object{
+type Role extends Object {
 
   read()  {true}
   write() {false}
 }
 
-type BillingTenant extends Object{
+type BillingTenant extends TenantSec {
   token: StripeToken,
   customer: StripeCustomer
 }
 
-type StripeToken extends Object{
-
-  read()   {roleOwner(getTenant(tenant), auth.uid)}
-  write()  {roleOwner(getTenant(tenant), auth.uid)}
+type StripeToken extends Object {
 }
 
-type StripeCustomer extends Object{
-
-  read()   {roleOwner(getTenant(tenant), auth.uid)}
-  write()  {roleOwner(getTenant(tenant), auth.uid)}
+type StripeCustomer extends Object {
 }

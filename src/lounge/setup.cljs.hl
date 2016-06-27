@@ -18,11 +18,14 @@
             [semantic-ui.modules.modal :as modal]
             [semantic-ui.modules.progress :as semprog]
             [semantic-ui.views.item :as semitm]
+            [firebase-cljs.promise :as fbprom]
+            [firebase-cljs.user :as fbuser]
             [lounge.ui :as ui]
             [lounge.firebase :as fb]
             [lounge.user :as user]
             [lounge.tenant :as tenant]
             [lounge.directory :as dir]
+            [lounge.datacenters :as dc]
             ;[lounge.forms :as forms]
             [lounge.route :as route]
             [lounge.notifications :as notify]
@@ -183,7 +186,13 @@
     (tenant/create-tenant! (:uid @user/user) tid)
     (fb/update-directory! [:tenants tindex] tid)
     (user/add-tenant! tid)
-    (tenant-success! tid)))
+    (tenant/swap-tenant! tid)
+    (tenant-success! tid)
+    (fbprom/then
+      (fbuser/get-token @user/user-auth)
+      #(dc/action! :azure :init
+          {:accessToken %
+           :tenantId tid}))))
 
 (defn access-tenant! [uid tid]
   (let []

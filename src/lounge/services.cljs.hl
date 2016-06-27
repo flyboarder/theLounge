@@ -1,0 +1,57 @@
+(ns lounge.services
+  (:require [cljsjs.firebase]
+            [firebase-cljs.database :as fbdb]
+            [lounge.firebase :as fb]
+            [lounge.notifications :as notify]
+            [lounge.util :as util]))
+
+(defc services-fb nil)
+(defc services-default nil)
+
+(defc= services
+  (util/deep-merge services-default services-fb))
+(cell= (prn "services: " services))
+(def service-failure! #(notify/error! :user_permission "Permissions Error!" (str "You do not have permission to access Service: " %)))
+
+(defn listen-services [tid state]
+  (fbdb/listen (fb/services) tid "value" #(reset! state (fb/fb->clj %)) #(service-failure! tid)))
+
+(defn login []
+  (listen-services "default" services-default))
+
+(defn logout [tid]
+  (fbdb/disable-listener! (fb/services "default") "value")
+  (when @services
+    (fbdb/disable-listener! (fb/services tid) "value"))
+  (reset! services-fb nil)
+  (reset! services-default nil))
+
+(defn action* [url data]
+  (.ajax js/jQuery url
+    (clj->js {:method "POST"
+              :data (util/clj->json data)
+              :dataType "json"
+              :contentType "application/json; charset=utf-8"
+              :jsonp false})))
+
+(defn action! [dc action adat]
+  (let [dc (get-in @services [dc])
+        action (get-in dc [:actions action])
+        trigger (get-in dc [:triggers (keyword (:trigger action))])
+        url (:url action)
+        host (:host action)]
+    (prn action trigger url host)
+    (action* trigger (assoc adat :actionUrl url :actionHost host))))
+;https://thelounge.azurewebsites.net/api/TriggerNodeJS?code=va7agxdvai6rk1p10t1sv2t9thudtsczs42e7z51ugly58kt90iynnr1c6sttllu11dvuin3ik9
+;#(.done (.ajax js/jQuery "https://thelounge.azurewebsites.net/api/HttpTriggerNodeJS1?code=klrv4ofckbbmxbvtjyhm8ia4il4jj0v8o043blfzksc5v78pvizqcpvqfr1ox21m04hgyfd2t9"
+; (clj->js {:method "POST"
+;           :data (util/clj->json
+;                    {:accessToken %
+;                     :tenantId (:id @tenant/tenant)
+;                     :cloudType :public
+;                     :cloudName :azure
+;                     :action :init})
+;           :dataType "json"
+;           :contentType "application/json; charset=utf-8"
+;           :jsonp false})
+;) (fn [& x] (.log js/console x)))
