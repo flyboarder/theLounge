@@ -10,7 +10,7 @@
 
 (defc= services
   (util/deep-merge services-default services-fb))
-(cell= (prn "services: " services))
+
 (def service-failure! #(notify/error! :user_permission "Permissions Error!" (str "You do not have permission to access Service: " %)))
 
 (defn listen-services [tid state]

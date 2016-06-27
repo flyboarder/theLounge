@@ -28,6 +28,7 @@
             [lounge.user :as user]
             [lounge.directory :as dir]
             [lounge.datacenters :as dc]
+            [lounge.services :as svc]
             [lounge.forms :as forms]
             [lounge.route :as route]
             [lounge.notifications :as notify]
@@ -70,8 +71,9 @@
 (defc= deploy? (= mode "deploy"))
 (defc= process? (or migrate? deploy?))
 
-(cell= (prn "wiz-stages: " wizard-stages))
-
+(defc= azure-services (get-in dc/datacenters [:azure :services]))
+(defc= service-settings (get-in svc/services [:azure]))
+(cell= (prn "svc-settings: "service-settings))
 (defn set-setup! [setup]
   (tenant/assoc-tenant! (:id @tenant/tenant) [:setup] setup))
 
@@ -126,6 +128,7 @@
     :toggle mode
     (semgrid/left-column
       (semsteps/top-attached-steps
+        :steps 3
         (loop-tpl :bindings [[_ stage] wizard-stages]
           (semsteps/step :icon (:icon @stage) :title (:title @stage))))
       (semprog/progress
@@ -143,8 +146,8 @@
         (ui/positive-negative-buttons
           :positive #(progress! :apps)
           :negative #(reset-setup!)
-          "Cancel"
-          "Submit")))))
+          "Submit"
+          "Cancel")))))
 
 (defelem industry-card [attr kids]
   (semcard/card
@@ -195,8 +198,36 @@
       (semcard/link-cards
         :class [:centered :stackable]
         :cards 4
-        (loop-tpl :bindings [_ (cell nil)]
-          (semcard/card))))))
+        (loop-tpl :bindings [[svc {:keys [image title description actions vendor price]}] azure-services]
+          (let [confirmation (cell nil)
+                settings (cell= (get-in service-settings [svc :settings]))
+                status (:status settings)]
+            (semcard/card
+              :class [:top :attached :blue]
+              :click #(swap! confirmation not)
+            (semcard/content
+              :class [:left :aligned]
+              (semcard/content-header (text "~{title}"))
+              (semcard/content-meta
+                (text "by ~{vendor}")
+                (span :class [:right :floated] (text "$~{price}"))))
+            (semcard/content
+              :class [:ui :centered :tiny]
+              (img :class "ui centered tiny image" :src (cell= image)))
+            (semcard/content
+              (semcard/content-meta (text "~{description}")))
+            (semcard/content
+              :class [:left :aligned]
+              (semcard/content-meta
+                (text "Status: ~{status}")
+                nil))
+            (ui/positive-negative-buttons
+              :class [:bottom :attached]
+              :toggle confirmation
+              :positive #(comp (prn "svc/action!"))
+              :negative #(swap! confirmation not)
+              "Confirm"
+              "Cancel"))))))))
 
 (defelem dash [attr kids]
   (ui/row
@@ -206,4 +237,5 @@
       (wizard-entry)
       (wizard-process)
       (wizard-contact)
-      (wizard-industry))))
+      (wizard-industry)
+      (wizard-apps))))

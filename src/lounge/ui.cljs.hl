@@ -58,16 +58,17 @@
 
 (defelem positive-negative-buttons [attr kids]
   (sembtn/buttons
+    attr
     :buttons true
     (sembtn/basic-button
       :class [:red]
       :click (:negative attr)
-      (first kids))
+      (second kids))
     (sembtn/basic-button
       :class [:green]
       :click (:positive attr)
-      (second kids))))
-      
+      (first kids))))
+
 ;(defelem card [attr kids]
 ;  (-> attr
 ;    (assoc :extend semcard/card :pre-class [:blue])

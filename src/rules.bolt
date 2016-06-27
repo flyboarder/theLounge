@@ -28,11 +28,9 @@ path /users/{user}/tenants/{tenant} is String | Null;
 path /tenants/{tenant} is Tenant;
 path /datacenters/{tenant} is DatacenterTenant;
 path /datacenters/{tenant}/{datacenter} is Datacenter | Null;
-path /datacenters/{tenant}/{datacenter}/actions is DatacenterActions | Null;
 path /datacenters/{tenant}/{datacenter}/actions/{action} is DatacenterAction | Null;
 path /datacenters/{tenant}/{datacenter}/triggers/{trigger} is DatacenterTrigger | Null;
 path /datacenters/{tenant}/{datacenter}/services/{service} is DatacenterService | Null;
-path /datacenters/{tenant}/{datacenter}/services/{service}/actions is DatacenterActions | Null;
 path /datacenters/{tenant}/{datacenter}/services/{service}/actions/{action} is DatacenterAction | Null;
 path /services/{tenant} is ServiceTenant;
 path /services/{tenant}/{datacenter}/{service} is Service;
@@ -112,19 +110,13 @@ type DatacenterTrigger extends String {
 }
 
 type DatacenterService extends Object {
+    image: String | Null
 }
 
 type DatacenterAction extends Object {
     trigger: String,
     host: String,
     url: String
-}
-
-type DatacenterActions extends Object {
-    init: DatacenterAction,
-    destroy: DatacenterAction,
-    start: DatacenterAction,
-    shutdown: DatacenterAction
 }
 
 type ServiceTenant extends TenantSec {
